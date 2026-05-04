@@ -42,7 +42,7 @@ function App() {
     setVideoTitle('')
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/process';
+      const apiUrl = import.meta.env.VITE_API_URL || '/api/process';
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -102,7 +102,7 @@ function App() {
   const handleListen = async (text, lang) => {
     try {
       setAudioLoading(true)
-      const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/process', '/tts') : 'http://localhost:8000/api/tts';
+      const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/process', '/tts') : '/api/tts';
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
