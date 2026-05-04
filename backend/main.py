@@ -50,7 +50,7 @@ def get_video_title(video_id):
         pass
     return "YouTube Video"
 
-@app.post("/api/process")
+@app.post("/process")
 async def process_video(request: ProcessRequest):
     video_id = extract_video_id(request.url)
     if not video_id:
@@ -130,7 +130,7 @@ class TTSRequest(BaseModel):
     lang: str
     slow: bool = False
 
-@app.post("/api/tts")
+@app.post("/tts")
 async def generate_tts(request: TTSRequest):
     try:
         # Generate TTS audio
