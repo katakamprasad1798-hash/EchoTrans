@@ -63,4 +63,4 @@ The project is Capacitor-ready. To build the Android app:
 This project is open-source and available under the MIT License.
 
 ---
-*Created with ❤️ by Antigravity*
+
