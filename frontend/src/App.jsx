@@ -87,7 +87,11 @@ function App() {
         }
       }
     } catch (err) {
-      setError(err.message)
+      let msg = err.message;
+      if (msg.includes('IP has been blocked') || msg.includes('cloud provider')) {
+        msg = "YouTube is blocking the request from our server (common on cloud hosting). Please try again later or add a PROXY_URL to settings.";
+      }
+      setError(msg)
     } finally {
       setLoading(false)
     }

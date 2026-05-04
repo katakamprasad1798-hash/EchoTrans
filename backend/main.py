@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi
 from deep_translator import GoogleTranslator
 import re
+import os
 
 app = FastAPI()
 
@@ -38,6 +39,13 @@ def get_video_title(video_id):
     import urllib.request
     try:
         url = f"https://www.youtube.com/watch?v={video_id}"
+        # Use proxies for title fetch too if available
+        proxy_url = os.environ.get('PROXY_URL')
+        if proxy_url:
+            handler = urllib.request.ProxyHandler({'http': proxy_url, 'https': proxy_url})
+            opener = urllib.request.build_opener(handler)
+            urllib.request.install_opener(opener)
+            
         with urllib.request.urlopen(url) as response:
             html = response.read().decode('utf-8')
             match = re.search(r'<title>(.*?)</title>', html)
@@ -66,15 +74,36 @@ async def process_video(request: ProcessRequest):
             yield json.dumps({"status": "Fetching transcript...", "progress": 10}) + "\n"
             await asyncio.sleep(0.1) # Brief pause to allow UI update
             
-            api = YouTubeTranscriptApi()
-            transcript_list = api.list(video_id)
+            # Setup proxies and cookies
+            proxy_url = os.environ.get('PROXY_URL')
+            proxies = None
+            if proxy_url:
+                proxies = {"http": proxy_url, "https": proxy_url}
             
+            # Look for cookies.txt in the same directory as main.py
+            cookie_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
+            cookies = cookie_path if os.path.exists(cookie_path) else None
+
+            # Fetch transcript with workarounds
             try:
-                transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB', 'en-CA', 'en-AU', 'en-IN'])
-            except Exception:
-                transcript = next(iter(transcript_list))
+                if cookies:
+                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies, proxies=proxies)
+                else:
+                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
                 
-            fetched_transcript = transcript.fetch()
+                try:
+                    transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB', 'en-CA', 'en-AU', 'en-IN'])
+                except Exception:
+                    transcript = next(iter(transcript_list))
+                    
+                fetched_transcript = transcript.fetch()
+            except Exception as e:
+                # Fallback to direct get_transcript if list_transcripts fails
+                if cookies:
+                    fetched_transcript = YouTubeTranscriptApi.get_transcript(video_id, cookies=cookies, proxies=proxies)
+                else:
+                    fetched_transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies=proxies)
+            
             original_text = " ".join([s.text for s in fetched_transcript])
             
             yield json.dumps({"status": "Transcript fetched. Preparing translation...", "progress": 30}) + "\n"
