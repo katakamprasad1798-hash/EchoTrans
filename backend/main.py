@@ -78,18 +78,31 @@ async def process_video(request: ProcessRequest):
             proxy_url = os.environ.get('PROXY_URL')
             proxies = None
             if proxy_url:
-                proxies = {"http": proxy_url, "https": proxy_url}
+                try:
+                    from youtube_transcript_api.proxies import ProxyConfig
+                    proxies = ProxyConfig.from_url(proxy_url)
+                except Exception:
+                    # Fallback if ProxyConfig is not in that location
+                    proxies = {"http": proxy_url, "https": proxy_url}
             
-            # Look for cookies.txt in the same directory as main.py
+            # Create a session for cookies if needed
+            import requests
+            session = requests.Session()
             cookie_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
-            cookies = cookie_path if os.path.exists(cookie_path) else None
+            if os.path.exists(cookie_path):
+                try:
+                    import http.cookiejar
+                    cj = http.cookiejar.MozillaCookieJar(cookie_path)
+                    cj.load(ignore_discard=True, ignore_expires=True)
+                    session.cookies.update(cj)
+                except Exception as e:
+                    print(f"Error loading cookies: {e}")
 
-            # Fetch transcript with workarounds
+            # Initialize API instance with workarounds
+            api = YouTubeTranscriptApi(proxy_config=proxies, http_client=session)
+            
             try:
-                if cookies:
-                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies, proxies=proxies)
-                else:
-                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
+                transcript_list = api.list(video_id)
                 
                 try:
                     transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB', 'en-CA', 'en-AU', 'en-IN'])
@@ -98,11 +111,11 @@ async def process_video(request: ProcessRequest):
                     
                 fetched_transcript = transcript.fetch()
             except Exception as e:
-                # Fallback to direct get_transcript if list_transcripts fails
-                if cookies:
-                    fetched_transcript = YouTubeTranscriptApi.get_transcript(video_id, cookies=cookies, proxies=proxies)
+                # Fallback to direct get if list fails (some versions have get_transcript on instance)
+                if hasattr(api, 'get_transcript'):
+                    fetched_transcript = api.get_transcript(video_id)
                 else:
-                    fetched_transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies=proxies)
+                    raise e
             
             original_text = " ".join([s.text for s in fetched_transcript])
             
