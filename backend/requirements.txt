@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+youtube-transcript-api
+deep-translator
+pydantic
+fastapi-cors
+gunicorn
+gTTS
